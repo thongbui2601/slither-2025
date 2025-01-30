@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Slither.io Clone</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            border: 2px solid #333;
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial;
+            font-size: 20px;
+            z-index: 1;
+        }
+        #minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            border: 2px solid #333;
+            background: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    <canvas id="minimap"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimap');
+        const minimapCtx = minimapCanvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        canvas.width = window.innerWidth - 40;
+        canvas.height = window.innerHeight - 40;
+        minimapCanvas.width = 150;
+        minimapCanvas.height = 150;
+
+        const WORLD_SIZE = 4000;
+        const VIEWPORT_BUFFER = 100;
+
+        const camera = {
+            x: 0,
+            y: 0,
+            scale: 1
+        };
+
+        const snake = {
+            x: WORLD_SIZE / 2,
+            y: WORLD_SIZE / 2,
+            size: 10,
+            baseSpeed: 3,
+            sprintSpeed: 6,
+            speed: 3,
+            angle: 0,
+            tail: [],
+            tailLength: 20,
+            score: 0,
+            color: '#0f0',
+            isSprinting: false,
+            sprintTimer: 0,
+            sprintDropCounter: 0
+        };
+
+        const bots = [];
+        const BOT_COUNT = 10;
+
+        class Bot {
+            constructor() {
+                this.x = Math.random() * WORLD_SIZE;
+                this.y = Math.random() * WORLD_SIZE;
+                this.size = 10;
+                this.speed = 2 + Math.random();
+                this.angle = Math.random() * Math.PI * 2;
+                this.tail = [];
+                this.tailLength = 15 + Math.floor(Math.random() * 30);
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+                this.updateTargetCounter = 0;
+            }
+
+            update() {
+                this.updateTargetCounter++;
+                if (this.updateTargetCounter > 60) {
+                    this.updateTargetCounter = 0;
+                    this.targetX = Math.random() * WORLD_SIZE;
+                    this.targetY = Math.random() * WORLD_SIZE;
+                }
+
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const targetAngle = Math.atan2(dy, dx);
+
+                const angleDiff = targetAngle - this.angle;
+                this.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 0.1);
+
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+
+                if (this.x < 0) this.x = WORLD_SIZE;
+                if (this.x > WORLD_SIZE) this.x = 0;
+                if (this.y < 0) this.y = WORLD_SIZE;
+                if (this.y > WORLD_SIZE) this.y = 0;
+
+                this.tail.unshift({ x: this.x, y: this.y });
+                while (this.tail.length > this.tailLength) {
+                    this.tail.pop();
+                }
+
+                // Find nearby food
+                let nearestFood = null;
+                let nearestDist = 200;
+                food.forEach(f => {
+                    const dx = f.x - this.x;
+                    const dy = f.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestFood = f;
+                    }
+                });
+
+                // Change target to nearby food
+                if (nearestFood) {
+                    this.targetX = nearestFood.x;
+                    this.targetY = nearestFood.y;
+                }
+            }
+        }
+
+        for (let i = 0; i < BOT_COUNT; i++) {
+            bots.push(new Bot());
+        }
+
+        const food = [];
+        const foodCount = 500;
+
+        for (let i = 0; i < foodCount; i++) {
+            food.push({
+                x: Math.random() * WORLD_SIZE,
+                y: Math.random() * WORLD_SIZE,
+                size: 5
+            });
+        }
+
+        function updateCamera() {
+            camera.x = snake.x - canvas.width / 2;
+            camera.y = snake.y - canvas.height / 2;
+
+            camera.x = Math.max(0, Math.min(camera.x, WORLD_SIZE - canvas.width));
+            camera.y = Math.max(0, Math.min(camera.y, WORLD_SIZE - canvas.height));
+        }
+
+        function moveSnake() {
+            snake.tail.unshift({ x: snake.x, y: snake.y });
+
+            if (snake.isSprinting && snake.tailLength > 20) {
+                snake.sprintDropCounter++;
+                if (snake.sprintDropCounter >= 5) {
+                    snake.sprintDropCounter = 0;
+                    if (snake.tail.length > 10) {
+                        const dropPosition = snake.tail[snake.tail.length - 1];
+                        food.push({
+                            x: dropPosition.x,
+                            y: dropPosition.y,
+                            size: 5
+                        });
+                        snake.tailLength -= 1;
+                        snake.score = Math.max(0, snake.score - 2);
+                        scoreElement.textContent = `Score: ${snake.score}`;
+                    }
+                }
+            }
+
+            while (snake.tail.length > snake.tailLength) {
+                snake.tail.pop();
+            }
+
+            snake.x += Math.cos(snake.angle) * snake.speed;
+            snake.y += Math.sin(snake.angle) * snake.speed;
+
+            if (snake.x < 0) snake.x = WORLD_SIZE;
+            if (snake.x > WORLD_SIZE) snake.x = 0;
+            if (snake.y < 0) snake.y = WORLD_SIZE;
+            if (snake.y > WORLD_SIZE) snake.y = 0;
+        }
+
+        function checkFoodCollision() {
+            food.forEach((f, index) => {
+                const dx = snake.x - f.x;
+                const dy = snake.y - f.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < snake.size + f.size) {
+                    food[index] = {
+                        x: Math.random() * WORLD_SIZE,
+                        y: Math.random() * WORLD_SIZE,
+                        size: 5
+                    };
+                    snake.tailLength += 5;
+                    snake.score += 10;
+                    scoreElement.textContent = `Score: ${snake.score}`;
+                }
+            });
+
+            bots.forEach(bot => {
+                food.forEach((f, index) => {
+                    const dx = bot.x - f.x;
+                    const dy = bot.y - f.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < bot.size + f.size) {
+                        food[index] = {
+                            x: Math.random() * WORLD_SIZE,
+                            y: Math.random() * WORLD_SIZE,
+                            size: 5
+                        };
+                        bot.tailLength += 5;
+                    }
+                });
+            });
+        }
+
+        function drawGrid() {
+            const gridSize = 100;
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 0.5;
+
+            for (let x = -camera.x % gridSize; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = -camera.y % gridSize; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawMinimap() {
+            minimapCtx.fillStyle = '#000';
+            minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+            const scale = minimapCanvas.width / WORLD_SIZE;
+
+            minimapCtx.fillStyle = snake.color;
+            minimapCtx.beginPath();
+            minimapCtx.arc(snake.x * scale, snake.y * scale, 2, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            bots.forEach(bot => {
+                minimapCtx.fillStyle = bot.color;
+                minimapCtx.beginPath();
+                minimapCtx.arc(bot.x * scale, bot.y * scale, 2, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
+
+            minimapCtx.strokeStyle = '#fff';
+            minimapCtx.strokeRect(
+                camera.x * scale,
+                camera.y * scale,
+                canvas.width * scale,
+                canvas.height * scale
+            );
+        }
+
+        function isInViewport(x, y) {
+            return x >= camera.x - VIEWPORT_BUFFER &&
+                   x <= camera.x + canvas.width + VIEWPORT_BUFFER &&
+                   y >= camera.y - VIEWPORT_BUFFER &&
+                   y <= camera.y + canvas.height + VIEWPORT_BUFFER;
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawGrid();
+
+            ctx.fillStyle = '#f00';
+            food.forEach(f => {
+                if (isInViewport(f.x, f.y)) {
+                    ctx.beginPath();
+                    ctx.arc(f.x - camera.x, f.y - camera.y, f.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            bots.forEach(bot => {
+                ctx.fillStyle = bot.color;
+                bot.tail.forEach((segment, index) => {
+                    if (isInViewport(segment.x, segment.y)) {
+                        const size = bot.size * (1 - index / bot.tail.length * 0.5);
+                        ctx.beginPath();
+                        ctx.arc(segment.x - camera.x, segment.y - camera.y, size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+            });
+
+            ctx.fillStyle = snake.color;
+            snake.tail.forEach((segment, index) => {
+                const size = snake.size * (1 - index / snake.tail.length * 0.5);
+                ctx.beginPath();
+                ctx.arc(segment.x - camera.x, segment.y - camera.y, size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            drawMinimap();
+        }
+
+        function gameLoop() {
+            moveSnake();
+            bots.forEach(bot => bot.update());
+            checkFoodCollision();
+            updateCamera();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        canvas.addEventListener('mousedown', (event) => {
+            if (event.button === 0) {
+                snake.isSprinting = true;
+                snake.speed = snake.sprintSpeed;
+            }
+        });
+
+        canvas.addEventListener('mouseup', (event) => {
+            if (event.button === 0) {
+                snake.isSprinting = false;
+                snake.speed = snake.baseSpeed;
+            }
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left + camera.x;
+            const mouseY = event.clientY - rect.top + camera.y;
+
+            snake.angle = Math.atan2(
+                mouseY - snake.y,
+                mouseX - snake.x
+            );
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth - 40;
+            canvas.height = window.innerHeight - 40;
+        });
+
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        gameLoop();
+    </script>
+</body>
+</html>
