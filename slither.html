@@ -389,6 +389,63 @@
                    y <= camera.y + canvas.height + VIEWPORT_BUFFER;
         }
 
+        function drawEyes(snake, ctx, camera) {
+            const head = { x: snake.x - camera.x, y: snake.y - camera.y };
+            const eyeRadius = snake.size * 0.4;
+            const eyeOffset = snake.size * 0.6;
+
+            // Mắt trái
+            const leftEyeAngle = snake.angle - Math.PI / 2 * 0.3;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(
+                head.x + Math.cos(leftEyeAngle) * eyeOffset,
+                head.y + Math.sin(leftEyeAngle) * eyeOffset,
+                eyeRadius,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+
+            // Mắt phải
+            const rightEyeAngle = snake.angle + Math.PI / 2 * 0.3;
+            ctx.beginPath();
+            ctx.arc(
+                head.x + Math.cos(rightEyeAngle) * eyeOffset,
+                head.y + Math.sin(rightEyeAngle) * eyeOffset,
+                eyeRadius,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+
+            // Đồng tử mắt
+            const pupilOffset = eyeRadius * 0.5;
+            ctx.fillStyle = '#000';
+
+            // Đồng tử trái
+            ctx.beginPath();
+            ctx.arc(
+                head.x + Math.cos(leftEyeAngle) * (eyeOffset + pupilOffset),
+                head.y + Math.sin(leftEyeAngle) * (eyeOffset + pupilOffset),
+                eyeRadius * 0.6,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+
+            // Đồng tử phải
+            ctx.beginPath();
+            ctx.arc(
+                head.x + Math.cos(rightEyeAngle) * (eyeOffset + pupilOffset),
+                head.y + Math.sin(rightEyeAngle) * (eyeOffset + pupilOffset),
+                eyeRadius * 0.6,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
+
         function draw() {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -415,6 +472,7 @@
                         ctx.fill();
                     }
                 });
+                drawEyes(bot, ctx, camera);
             });
 
             ctx.fillStyle = snake.color;
@@ -425,6 +483,7 @@
                 ctx.fill();
             });
 
+            drawEyes(snake, ctx, camera);
             drawMinimap();
         }
 
