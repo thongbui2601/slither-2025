@@ -105,6 +105,23 @@
                     return; // Không cập nhật nếu bot đang chết
                 }
 
+                // Thêm logic né tránh
+                const avoidForce = this.calculateAvoidance();
+                const foodForce = this.calculateFoodSeeking();
+                
+                // Kết hợp các vector hướng
+                const totalForce = {
+                    x: avoidForce.x * 1.5 + foodForce.x * 1.0,
+                    y: avoidForce.y * 1.5 + foodForce.y * 1.0
+                };
+
+                // Tính góc di chuyển mới
+                if (Math.abs(totalForce.x) > 0.1 || Math.abs(totalForce.y) > 0.1) {
+                    const targetAngle = Math.atan2(totalForce.y, totalForce.x);
+                    const angleDiff = targetAngle - this.angle;
+                    this.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 0.15);
+                }
+
                 this.updateTargetCounter++;
                 if (this.updateTargetCounter > 60) {
                     this.updateTargetCounter = 0;
@@ -131,25 +148,78 @@
                 while (this.tail.length > this.tailLength) {
                     this.tail.pop();
                 }
+            }
 
-                // Find nearby food
+            // Thêm các phương thức mới vào class Bot:
+            calculateAvoidance() {
+                const avoidance = { x: 0, y: 0 };
+                const detectionRadius = 120;
+                
+                // Tránh các bot khác
+                bots.forEach(other => {
+                    if (other === this || other.isDead) return;
+                    
+                    const dx = other.x - this.x;
+                    const dy = other.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < detectionRadius) {
+                        const pushForce = (detectionRadius - dist) / detectionRadius;
+                        avoidance.x -= (dx / dist) * pushForce;
+                        avoidance.y -= (dy / dist) * pushForce;
+                    }
+                });
+
+                // Tránh đuôi rắn khác (kể cả player)
+                [snake, ...bots].forEach(s => {
+                    if (s === this || s.isDead) return;
+                    
+                    for (let i = 0; i < s.tail.length; i += 5) {
+                        const segment = s.tail[i];
+                        const dx = segment.x - this.x;
+                        const dy = segment.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < detectionRadius) {
+                            const pushForce = (detectionRadius - dist) / detectionRadius;
+                            avoidance.x -= (dx / dist) * pushForce * 0.7;
+                            avoidance.y -= (dy / dist) * pushForce * 0.7;
+                        }
+                    }
+                });
+
+                return avoidance;
+            }
+
+            calculateFoodSeeking() {
+                const force = { x: 0, y: 0 };
                 let nearestFood = null;
-                let nearestDist = 200;
+                let nearestDist = Infinity;
+
+                // Tìm thức ăn gần nhất
                 food.forEach(f => {
                     const dx = f.x - this.x;
                     const dy = f.y - this.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const dist = dx * dx + dy * dy;
+                    
                     if (dist < nearestDist) {
                         nearestDist = dist;
                         nearestFood = f;
                     }
                 });
 
-                // Change target to nearby food
                 if (nearestFood) {
-                    this.targetX = nearestFood.x;
-                    this.targetY = nearestFood.y;
+                    const dx = nearestFood.x - this.x;
+                    const dy = nearestFood.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > 0) {
+                        force.x = (dx / dist) * 1.0;
+                        force.y = (dy / dist) * 1.0;
+                    }
                 }
+
+                return force;
             }
 
             respawn() {
