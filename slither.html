@@ -91,9 +91,20 @@
                 this.targetY = this.y;
                 this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
                 this.updateTargetCounter = 0;
+                this.isDead = false;
+                this.respawnTimer = 0;
+                this.respawnDelay = 180; // 3 giây (60 frames/giây * 3)
             }
 
             update() {
+                if (this.isDead) {
+                    this.respawnTimer++;
+                    if (this.respawnTimer >= this.respawnDelay) {
+                        this.respawn();
+                    }
+                    return; // Không cập nhật nếu bot đang chết
+                }
+
                 this.updateTargetCounter++;
                 if (this.updateTargetCounter > 60) {
                     this.updateTargetCounter = 0;
@@ -139,6 +150,16 @@
                     this.targetX = nearestFood.x;
                     this.targetY = nearestFood.y;
                 }
+            }
+
+            respawn() {
+                this.isDead = false;
+                this.respawnTimer = 0;
+                this.x = Math.random() * WORLD_SIZE;
+                this.y = Math.random() * WORLD_SIZE;
+                this.tail = [];
+                this.tailLength = 15 + Math.floor(Math.random() * 30);
+                this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
             }
         }
 
@@ -239,6 +260,81 @@
             });
         }
 
+        function checkBotCollisions() {
+            for (let i = 0; i < bots.length; i++) {
+                const botA = bots[i];
+                if (botA.isDead) continue;
+
+                for (let j = i + 1; j < bots.length; j++) {
+                    const botB = bots[j];
+                    if (botB.isDead) continue;
+
+                    // Bot A chạm vào đuôi Bot B
+                    if (checkCollisionWithSnake(botA, botB)) {
+                        handleSnakeDeath(botA);
+                    }
+
+                    // Bot B chạm vào đuôi Bot A
+                    if (checkCollisionWithSnake(botB, botA)) {
+                        handleSnakeDeath(botB);
+                    }
+                }
+            }
+        }
+
+        // Thêm hàm kiểm tra va chạm giữa đầu rắn và thân rắn
+        function checkCollisionWithSnake(snakeA, snakeB) {
+            // Kiểm tra đầu rắn A có chạm thân rắn B hay không
+            for (let i = 2; i < snakeB.tail.length; i++) { // Bỏ qua 2 đoạn đầu để tránh va chạm gần đầu
+                const dx = snakeA.x - snakeB.tail[i].x;
+                const dy = snakeA.y - snakeB.tail[i].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < snakeA.size) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Thêm hàm xử lý khi rắn chết
+        function handleSnakeDeath(snake) {
+            if (snake.isDead) return;
+
+            // Tạo thức ăn từ đuôi NGAY KHI CHẾT
+            const segmentsPerFood = 5;
+            const minFood = 10;
+            const foodCount = Math.max(minFood, Math.floor(snake.tailLength / segmentsPerFood));
+            const step = Math.max(1, Math.floor(snake.tail.length / foodCount));
+
+            for (let i = 0; i < foodCount; i++) {
+                const segmentIndex = i * step;
+                if (segmentIndex < snake.tail.length) {
+                    food.push({
+                        x: snake.tail[segmentIndex].x,
+                        y: snake.tail[segmentIndex].y,
+                        size: 5,
+                        color: `hsl(${Math.random() * 360}, 70%, 50%)`
+                    });
+                }
+            }
+
+            // Reset bot NGAY LẬP TỨC (không chờ 3s)
+            if (snake instanceof Bot) {
+                snake.isDead = true;
+                snake.respawnTimer = 0;
+                snake.tail = []; // Xóa đuôi ngay lập tức
+                snake.tailLength = 0; // Đặt độ dài đuôi về 0
+            } else {
+                // Reset người chơi
+                snake.x = Math.random() * WORLD_SIZE;
+                snake.y = Math.random() * WORLD_SIZE;
+                snake.tail = [];
+                snake.tailLength = 20;
+                snake.score = 0;
+            }
+        }
+
         function drawGrid() {
             const gridSize = 100;
             ctx.strokeStyle = '#333';
@@ -309,6 +405,7 @@
             });
 
             bots.forEach(bot => {
+                if (bot.isDead) return; // Bỏ qua bot đã chết
                 ctx.fillStyle = bot.color;
                 bot.tail.forEach((segment, index) => {
                     if (isInViewport(segment.x, segment.y)) {
@@ -334,6 +431,19 @@
         function gameLoop() {
             moveSnake();
             bots.forEach(bot => bot.update());
+
+            checkBotCollisions();
+
+            // Kiểm tra va chạm giữa snake và các bot
+            bots.forEach(bot => {
+                if (checkCollisionWithSnake(snake, bot)) {
+                    handleSnakeDeath(snake); // Rắn của người chơi chết
+                }
+                if (checkCollisionWithSnake(bot, snake)) {
+                    handleSnakeDeath(bot); // Bot chết khi va chạm với người chơi
+                }
+            });
+
             checkFoodCollision();
             updateCamera();
             draw();
