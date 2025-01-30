@@ -153,7 +153,8 @@
             food.push({
                 x: Math.random() * WORLD_SIZE,
                 y: Math.random() * WORLD_SIZE,
-                size: 5
+                size: 5,
+                color: `hsl(${Math.random() * 360}, 70%, 50%)`
             });
         }
 
@@ -177,7 +178,8 @@
                         food.push({
                             x: dropPosition.x,
                             y: dropPosition.y,
-                            size: 5
+                            size: 5,
+                            color: `hsl(${Math.random() * 360}, 70%, 50%)`
                         });
                         snake.tailLength -= 1;
                         snake.score = Math.max(0, snake.score - 2);
@@ -209,7 +211,8 @@
                     food[index] = {
                         x: Math.random() * WORLD_SIZE,
                         y: Math.random() * WORLD_SIZE,
-                        size: 5
+                        size: 5,
+                        color: `hsl(${Math.random() * 360}, 70%, 50%)`
                     };
                     snake.tailLength += 5;
                     snake.score += 10;
@@ -227,7 +230,8 @@
                         food[index] = {
                             x: Math.random() * WORLD_SIZE,
                             y: Math.random() * WORLD_SIZE,
-                            size: 5
+                            size: 5,
+                            color: `hsl(${Math.random() * 360}, 70%, 50%)`
                         };
                         bot.tailLength += 5;
                     }
@@ -295,9 +299,9 @@
 
             drawGrid();
 
-            ctx.fillStyle = '#f00';
             food.forEach(f => {
                 if (isInViewport(f.x, f.y)) {
+                    ctx.fillStyle = f.color;
                     ctx.beginPath();
                     ctx.arc(f.x - camera.x, f.y - camera.y, f.size, 0, Math.PI * 2);
                     ctx.fill();
