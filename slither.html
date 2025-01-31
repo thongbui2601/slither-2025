@@ -258,34 +258,51 @@
         }
 
         function moveSnake() {
+            // Kiểm tra nếu điểm bằng 0 thì không được sprint
+            if (snake.score <= 0) {
+                snake.isSprinting = false;
+                snake.speed = snake.baseSpeed;
+            }
+            
             snake.tail.unshift({ x: snake.x, y: snake.y });
 
+            // Xử lý sprint và thải thức ăn
             if (snake.isSprinting && snake.tailLength > 20) {
                 snake.sprintDropCounter++;
-                if (snake.sprintDropCounter >= 5) {
+                if (snake.sprintDropCounter >= 5) { // Mỗi 5 frame sẽ thải một lần
                     snake.sprintDropCounter = 0;
-                    if (snake.tail.length > 10) {
+                    if (snake.score > 0) {
+                        // Lấy vị trí cuối đuôi để thải thức ăn
                         const dropPosition = snake.tail[snake.tail.length - 1];
+                        
+                        // Thải ra một thức ăn
                         food.push({
                             x: dropPosition.x,
                             y: dropPosition.y,
                             size: 5,
                             color: `hsl(${Math.random() * 360}, 70%, 50%)`
                         });
+                        
+                        // Giảm độ dài đuôi
                         snake.tailLength -= 1;
-                        snake.score = Math.max(0, snake.score - 2);
+                        
+                        // Giảm điểm số - tăng mức giảm điểm để dễ nhận thấy
+                        snake.score = Math.max(0, snake.score - 10);
                         scoreElement.textContent = `Score: ${snake.score}`;
                     }
                 }
             }
 
+            // Cập nhật độ dài đuôi
             while (snake.tail.length > snake.tailLength) {
                 snake.tail.pop();
             }
 
+            // Di chuyển rắn
             snake.x += Math.cos(snake.angle) * snake.speed;
             snake.y += Math.sin(snake.angle) * snake.speed;
 
+            // Xử lý khi rắn đi ra khỏi màn hình
             if (snake.x < 0) snake.x = WORLD_SIZE;
             if (snake.x > WORLD_SIZE) snake.x = 0;
             if (snake.y < 0) snake.y = WORLD_SIZE;
@@ -305,12 +322,15 @@
                         size: 5,
                         color: `hsl(${Math.random() * 360}, 70%, 50%)`
                     };
-                    snake.tailLength += 5;
+                    // Tăng độ dài đuôi 1 đơn vị
+                    snake.tailLength += 1;
+                    // Tăng điểm số tương ứng
                     snake.score += 10;
                     scoreElement.textContent = `Score: ${snake.score}`;
                 }
             });
 
+            // Logic cho bots giữ nguyên
             bots.forEach(bot => {
                 food.forEach((f, index) => {
                     const dx = bot.x - f.x;
@@ -324,7 +344,7 @@
                             size: 5,
                             color: `hsl(${Math.random() * 360}, 70%, 50%)`
                         };
-                        bot.tailLength += 5;
+                        bot.tailLength += 1;
                     }
                 });
             });
@@ -437,6 +457,8 @@
             minimapCtx.fill();
 
             bots.forEach(bot => {
+                if (bot.isDead) return; // Không vẽ bot đã chết
+
                 minimapCtx.fillStyle = bot.color;
                 minimapCtx.beginPath();
                 minimapCtx.arc(bot.x * scale, bot.y * scale, 2, 0, Math.PI * 2);
@@ -558,6 +580,12 @@
         }
 
         function gameLoop() {
+            // Thêm điều kiện kiểm tra điểm số khi đang sprint
+            if (snake.score <= 0 && snake.isSprinting) {
+                snake.isSprinting = false;
+                snake.speed = snake.baseSpeed;
+            }
+
             moveSnake();
             bots.forEach(bot => bot.update());
 
@@ -580,7 +608,7 @@
         }
 
         canvas.addEventListener('mousedown', (event) => {
-            if (event.button === 0) {
+            if (event.button === 0  && snake.score > 0) {
                 snake.isSprinting = true;
                 snake.speed = snake.sprintSpeed;
             }
