@@ -29,7 +29,7 @@
             bottom: 20px;
             right: 20px;
             border: 2px solid #333;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(133, 13, 13, 0.5);
         }
     </style>
 </head>
@@ -539,10 +539,10 @@
         }
 
         function draw() {
-            ctx.fillStyle = '#000';
+            ctx.fillStyle = '#121c26';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            drawGrid();
+            // drawGrid();
 
             food.forEach(f => {
                 if (isInViewport(f.x, f.y)) {
